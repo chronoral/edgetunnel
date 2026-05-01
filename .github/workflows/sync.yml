@@ -1,23 +1,36 @@
 name: Upstream Sync
 
-# 設定觸發條件
+# 賦予 Action 推送代碼的權限
+permissions:
+  contents: write
+
 on:
   schedule:
-    - cron: '0 2 * * *' # 每天 UTC 時間 02:00 執行一次 (可自行修改)
-  workflow_dispatch: # 允許你在 GitHub 網頁上手動點擊執行
+    - cron: "0 0 * * *" # 每天 UTC 時間 00:00 執行
+  workflow_dispatch:    # 允許手動觸發
 
 jobs:
-  sync_with_upstream:
+  sync_latest_from_upstream:
+    name: Sync latest commits from upstream repo
     runs-on: ubuntu-latest
-    name: Sync main with upstream
+    # 確保這個 Action 只在 Fork 出來的倉庫執行，避免在上游原倉庫誤跑
+    if: ${{ github.event.repository.fork }}
+
     steps:
       - name: Checkout target repo
         uses: actions/checkout@v4
 
-      - name: Sync upstream changes
+      - name: Sync upstream changes (Using Official GitHub CLI)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # 使用 GitHub 官方 CLI 進行同步
+        # 使用原生官方工具，安全且免寫死上游名稱
         run: |
           gh repo sync ${{ github.repository }} -b main
-          # 注意：如果你的預設分支是 master 或其他名稱，請把上面的 main 換掉
+
+      # 完美保留你需要的錯誤捕捉與提示
+      - name: Sync check & Notify
+        if: failure()
+        run: |
+          echo "[Error] 由於上游倉庫發生重大變更（例如刪庫、強制覆寫歷史記錄），導致 GitHub 暫停了自動同步。"
+          echo "[Error] 你需要手動介入處理。詳細原因請檢查 GitHub Actions 的報錯日誌。"
+          exit 1
