@@ -1,40 +1,23 @@
 name: Upstream Sync
 
-permissions:
-  contents: write
-
+# 設定觸發條件
 on:
   schedule:
-    - cron: "0 0 * * *" # every day
-  workflow_dispatch:
+    - cron: '0 2 * * *' # 每天 UTC 時間 02:00 執行一次 (可自行修改)
+  workflow_dispatch: # 允許你在 GitHub 網頁上手動點擊執行
 
 jobs:
-  sync_latest_from_upstream:
-    name: Sync latest commits from upstream repo
+  sync_with_upstream:
     runs-on: ubuntu-latest
-    if: ${{ github.event.repository.fork }}
-
+    name: Sync main with upstream
     steps:
-      # Step 1: run a standard checkout action
       - name: Checkout target repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Step 2: run the sync action
       - name: Sync upstream changes
-        id: sync
-        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
-        with:
-          upstream_sync_repo: cmliu/edgetunnel
-          upstream_sync_branch: main
-          target_sync_branch: main
-          target_repo_token: ${{ secrets.GITHUB_TOKEN }} # automatically generated, no need to set
-
-          # Set test_mode true to run tests instead of the true action!!
-          test_mode: false
-
-      - name: Sync check
-        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # 使用 GitHub 官方 CLI 進行同步
         run: |
-          echo "[Error] 由于上游仓库的 workflow 文件变更，导致 GitHub 自动暂停了本次自动更新，你需要手动 Sync Fork 一次，详细教程请查看项目README.md "
-          echo "[Error] Due to a change in the workflow file of the upstream repository, GitHub has automatically suspended the scheduled automatic update. You need to manually sync your fork. Please refer to the project README.md for instructions. "
-          exit 1
+          gh repo sync ${{ github.repository }} -b main
+          # 注意：如果你的預設分支是 master 或其他名稱，請把上面的 main 換掉
